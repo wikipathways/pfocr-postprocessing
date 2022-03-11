@@ -145,9 +145,9 @@ sprintf("Unique enriched disease terms: %i/%i (%.0f%%)",
         length(unique(gmt.pfocr.overlaps$term))/length(unique(jensen2gene$term))*100)
 
 ## hgnc3-jensenknow7:
-# [1] "Unique figures with hits: 16705/27164 (61%)"
-# [1] "Unique enriched disease genes: 2562/3110 (82%)"
-# [1] "Unique enriched disease terms: 166/168 (99%)"
+# "Unique figures with hits: 21908/35485 (62%)"
+# "Unique enriched disease genes: 2796/3110 (90%)"
+# "Unique enriched disease terms: 165/168 (98%)"
 
 ## Filter for n+ hits
 gmt.pfocr.overlaps.n <- filter(gmt.pfocr.overlaps, pf.overlap.cnt >= 3)
@@ -169,10 +169,10 @@ sprintf("Average pathway hits per term: %f",mean(ont.terms$count))
 sprintf("Average disease terms per figure: %f",mean(figs$count))
 
 # n=3 
-# "Unique figures with n+ hits: 3875/27164 (14%)"
-# "Unique enriched disease terms: 146/168 (87%)"
-# "Average pathway hits per term: 46.828767"
-# "Average disease terms per figure: 1.764387"
+# "Unique figures with n+ hits: 4955/35485 (14%)"
+# "Unique enriched disease terms: 149/168 (89%)"
+# "Average pathway hits per term: 59.342282"
+# "Average disease terms per figure: 1.784460"
 
 #########################
 ## TOP TEN DISEASE
@@ -196,17 +196,17 @@ sprintf("#%i. %s %i (%.0f%%)",11, "Other", other.figids, other.figids/total.figi
 
 # know7_hgnc3_n=3:
 #
-# [1] "#1. Cancer 1646 (42%)"
-# [1] "#2. Epilepsy 258 (7%)"
-# [1] "#3. Rheumatoid arthritis 234 (6%)"
-# [1] "#4. Cholangiocarcinoma 222 (6%)"
-# [1] "#5. Breast cancer 143 (4%)"
-# [1] "#6. Urinary bladder cancer 121 (3%)"
-# [1] "#7. Alopecia areata 85 (2%)"
-# [1] "#8. Diabetes mellitus 80 (2%)"
-# [1] "#9. Aortic aneurysm 77 (2%)"
-# [1] "#10. Age related macular degeneration 72 (2%)"
-# [1] "#11. Other 937 (24%)"
+# [1] "#1. Cancer 2077 (42%)"
+# [1] "#2. Epilepsy 304 (6%)"
+# [1] "#3. Rheumatoid arthritis 304 (6%)"
+# [1] "#4. Cholangiocarcinoma 269 (5%)"
+# [1] "#5. Breast cancer 197 (4%)"
+# [1] "#6. Urinary bladder cancer 147 (3%)"
+# [1] "#7. Alopecia areata 137 (3%)"
+# [1] "#8. Diabetes mellitus 105 (2%)"
+# [1] "#9. Aortic aneurysm 96 (2%)"
+# [1] "#10. Age related macular degeneration 90 (2%)"
+# [1] "#11. Other 1229 (25%)"
 
 gmt.pfocr.overlaps.n <- dplyr::select(gmt.pfocr.overlaps.n, c("figid","term"))
 names(gmt.pfocr.overlaps.n) <- c("figid","jensenknow7")

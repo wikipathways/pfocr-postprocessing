@@ -26,7 +26,7 @@ gmt.df<-genes %>%
   dplyr::select(figid, figtitle, entrez)
 
 # This take ~7 minutes to complete
-rWikiPathways::writeGMT(gmt.df, "../pfocr_genes.gmt")
+rWikiPathways::writeGMT(gmt.df, "../pfocr_genes_draft.gmt")
 
 ##################################################################
 ## hgnc3 ##
@@ -46,13 +46,13 @@ figid_list3<- as.list(genes.cnt %>%
                         filter(cnt >=3) %>%
                         select(figid))[[1]]
 
-gmt.df<-genes.nobe0 %>%
+gmt.df2<-genes.nobe0 %>%
   distinct(figid,entrez) %>%
   dplyr::filter(figid %in% figid_list3) %>%
   dplyr::left_join(figs, by="figid") %>%
   dplyr::select(figid, figtitle, entrez)
 
 # This take ~1 minutes to complete
-rWikiPathways::writeGMT(gmt.df, "../pfocr_genes_hgnc3.gmt")
+rWikiPathways::writeGMT(gmt.df2, "../pfocr_genes_hgnc3_draft.gmt")
 
 
