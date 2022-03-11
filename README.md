@@ -17,22 +17,26 @@ This README describes how to process new batches of results from the PFOCR pipel
   
 2. Process genes
   - Starts with latest rds, e.g., "pfocr_genes_20210515.rds"
+  - Double check values of pmc_id, hgnc_symbol and lex_source for new entries!
+  - Double check proper expansion of bioentities!
   - Unifies the column names
   
 3. Check checmicals and disease (from PubTator)
   - TODO
 
-4. Generate annots from Jensen enrichment
+4. Generate GMTs
+  - Run pfocr_gmt.R
+  - Produce default gmt and "hgnc3" subset gmt files. Note: default takes ~7 minutes to complete.
+
+5. Generate annots from Jensen enrichment
   - Run pforc_enrich.R
+  - Uses gmt from prior step
   - check printed stats along the way. Certainly room for improvement here.
   - Produce pfocr_annots_draft.rds
   
-5. Generate GMTs
-  - Run pfocr_gmt.R
-  - Produce default gmt and "hgnc3" subset gmt files. Note: default takes ~7 minutes to complete.
-  
 6. Update ShinyApps.io
   - Run pfocr_shiny.R
+  - Uses genes, figures, and annots from prior steps
   - Copy draft rds over to shiny app dir and rename (remove _draft)
   - Test app and publish to shinyapps.io
 
