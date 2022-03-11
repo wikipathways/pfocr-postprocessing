@@ -5,13 +5,14 @@ This README describes how to process new batches of results from the PFOCR pipel
 1. Process figures 
   - Starts with latest rds, e.g., "pfocr_figures_20210515.rds"
   - Unifies the column names. It also formats the PMC filename and image link to work with NDEx.
-  - Removes preambles
+  - Removes some unnecessary columns
+  - Removes preambles from fig titles
   - Replaces empty/NA , <25, >200 fig titles
   - Applies ungreek function
   - reconciles organism/species names
   - Checks for missing titles
   - Checks for titles that are too short / too long
-  - Special cases, like (A) at the beginning of captions, artifacts
+  - Checks for special cases, like (A) at the beginning of captions, artifacts
   - Final RDS of new and old content merged: pfocr_figures_draft.rds
   
 2. Process genes
