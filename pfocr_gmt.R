@@ -1,58 +1,45 @@
 library(magrittr)
 library(dplyr)
 library(rWikiPathways)
+library(homologene)
 
 genes <- readRDS("../pfocr_genes_draft.rds")
 figs <- readRDS("../pfocr_figures_draft.rds")
 
-##################################################################
-## Default ##
-##############
-# Starting with all PFOCR, then applying 3+ filter
-
-genes.cnt<- genes %>%
-  distinct(figid,entrez) %>%
-  group_by(figid) %>%
-  summarise(cnt=n())
-
-figid_list3<- as.list(genes.cnt %>%
-                        filter(cnt >=3) %>%
-                        select(figid))[[1]]
-
-gmt.df<-genes %>%
-  distinct(figid,entrez) %>%
-  dplyr::filter(figid %in% figid_list3) %>%
-  dplyr::left_join(figs, by="figid") %>%
-  dplyr::select(figid, figtitle, entrez)
-
-# This take ~7 minutes to complete
-rWikiPathways::writeGMT(gmt.df, "../pfocr_genes_draft.gmt")
 
 ##################################################################
-## hgnc3 ##
-##############
+## GMT filtered as "hgnc3" ##
+#############################
 # Removing bioentities, previous and alias matches, then
 # filtering for 3+ genes
 
-genes.nobe0 <- genes %>%
-  dplyr::filter(source == "hgnc_symbol")
-
-genes.cnt<- genes.nobe0 %>%
-  distinct(figid,entrez) %>%
-  group_by(figid) %>%
-  summarise(cnt=n())
-
-figid_list3<- as.list(genes.cnt %>%
-                        filter(cnt >=3) %>%
-                        select(figid))[[1]]
-
-gmt.df2<-genes.nobe0 %>%
-  distinct(figid,entrez) %>%
-  dplyr::filter(figid %in% figid_list3) %>%
+gmt.df <- genes %>%
+  dplyr::filter(source == "hgnc_symbol") %>%
+  dplyr::distinct(figid,entrez) %>%
+  dplyr::add_count(figid) %>%
+  dplyr::filter(n >= 3) %>%
   dplyr::left_join(figs, by="figid") %>%
   dplyr::select(figid, figtitle, entrez)
 
 # This take ~1 minutes to complete
-rWikiPathways::writeGMT(gmt.df2, "../pfocr_genes_hgnc3_draft.gmt")
+rWikiPathways::writeGMT(gmt.df, "../pfocr_genes_hgnc3_draft.gmt")
+
+# Homology map to mouse
+hs.ent <- unique(dplyr::pull(gmt.df2, entrez))
+homo.df <- homologene(hs.ent, inTax = 9606, outTax = 10090)
+names(homo.df) <- c("symbol","symbol.mm","entrez","entrez.mm")
+homo.df$entrez <- as.character(homo.df$entrez)
+homo.df$entrez.mm <- as.character(homo.df$entrez.mm)
+gmt.df2 <- gmt.df %>%
+  dplyr::left_join(homo.df, by = "entrez") %>%
+  dplyr::filter(!is.na(entrez.mm)) %>%
+  dplyr::mutate(entrez = entrez.mm) %>%
+  dplyr::distinct(figid, figtitle, entrez) %>%
+  dplyr::add_count(figid) %>%
+  dplyr::filter(n >= 3) %>%
+  dplyr::select(-c(n))
+  
+# This take ~1 minutes to complete
+rWikiPathways::writeGMT(gmt.df2, "../pfocr_genes_hgnc3_mm_draft.gmt")
 
 
