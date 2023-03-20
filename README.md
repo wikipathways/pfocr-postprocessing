@@ -7,6 +7,8 @@ This README describes how to process new batches of results from the PFOCR pipel
   - Unifies the column names. It also formats the PMC filename and image link to work with NDEx.
   - Removes some unnecessary columns
   - Removes preambles from fig titles
+  - Adds figid_alias for GMTs and other human-readable use cases
+  - Adds citelink for pfocr database, using figid_alias
   - Replaces empty/NA , <25, >200 fig titles
   - Applies ungreek function
   - reconciles organism/species names

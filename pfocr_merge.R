@@ -16,6 +16,7 @@ max.year <- as.character(as.integer(batch.year) +1)
 # install.packages("tidyverse")
 library(tidyverse)
 library(stringr)
+library(RCurl)
 
 ##############################################################################
 ## Read in new PFOCR output and previous PFOCR data and format new data.
@@ -109,6 +110,94 @@ pfocr.curating.df <- pfocr.curating.df %>%
   dplyr::mutate(latin = checkLatinOrg(figtitle)) %>%
   as.data.frame()
 
+#######################################################################
+## Extract additional figure numbers and make figid_alias and figtype
+######################################################################
+pfocr.curating.df <- pfocr.curating.df %>%
+  dplyr::mutate(number = normalizeFigNumber(number,figlink,filename)) %>%
+  dplyr::mutate(figid_alias = paste(pmcid,number,sep = "__")) %>%
+  as.data.frame()
+
+dup_count <- nrow(pfocr.curating.df) - length(unique(pfocr.curating.df$figid_alias))
+
+if (dup_count > 0){
+  
+  sprintf("There are %i sets of duplicates!", dup_count)
+  
+  # filter for duplicate cases
+  duplicates.df <- pfocr.curating.df %>%
+    group_by(figid_alias) %>%
+    arrange(., figid_alias) %>%
+    filter(n() > 1) %>%
+    as.data.frame()
+  
+  ## FIRST, programmatically confirm the existence of these "duplicate" files. 
+  ## Often, one has been removed/replaced by PMC and is not acutally available.
+  ## Remove these missing figures from the database
+  for(i in 1:nrow(duplicates.df)){
+    url <- paste0("https://www.ncbi.nlm.nih.gov/pmc/articles/",
+                  duplicates.df[i,"pmcid"],
+                  "/bin/",
+                  duplicates.df[i,"filename"])
+    if (!url.exists(url)) {
+      message("Removing ",duplicates.df[i,"figid"])
+      pfocr.curating.df <- pfocr.curating.df %>%
+        filter(!grepl(paste0("^", duplicates.df[i,"figid"]), figid))
+    }
+  }
+
+  ## Check for remaining duplicates
+  duplicates.df <- pfocr.curating.df %>%
+    group_by(figid_alias) %>%
+    arrange(., figid_alias) %>%
+    filter(n() > 1) %>%
+    as.data.frame()
+  
+  if (nrow(duplicates.df) > 0){
+    sprintf("There are %i sets of duplicates!", nrow(duplicates.df))
+  }
+}
+
+## Only if necessary, manually check remaining duplicates and fix "number" or remove if actual duplicate or erroneous file
+duplicates.df
+
+# Case by case, check original "number" as possible source of duplicate info
+pfocr_new_pp[which(pfocr_new_pp$pmcid =="PMC7158350"),]
+
+# If actual duplicate or wrong file (e.g,. removed/replaced by PMC), then remove from PFOCR
+figids.to.remove <- c("PMC4277084__rsif20140937-g2.jpg")
+pfocr.curating.df <- pfocr.curating.df %>%
+  filter(!grepl(paste0("^(", paste(figids.to.remove, collapse = "|"), ")"), figid))
+
+#########################
+# Final checks on number
+#########################
+
+## Manually check cases not matching a simple F\\d+ pattern for unexpected characters
+head(pfocr.curating.df[grep("^F\\d+", pfocr.curating.df$number, invert = TRUE),"number"],1000)
+tail(pfocr.curating.df[grep("^F\\d+", pfocr.curating.df$number, invert = TRUE),"number"],1000)
+
+## Manually check the longest and shortest numbers for unexpected values
+tail(pfocr.curating.df[order(nchar(pfocr.curating.df$number)),"number"],20)
+head(pfocr.curating.df[order(nchar(pfocr.curating.df$number)),"number"],20)
+
+# Case by case, check full record for suspicious "numbers" 
+pfocr.curating.df[which(pfocr.curating.df$number =="F20140937"),]
+
+###################################
+## Add type based on figure prefix
+##################################
+type.list <- list(F="Figure",
+                  S="Scheme",
+                  SF="Supplemental figure",
+                  GA="Graphical abstract",
+                  AF="Appendix figure",
+                  EV="Extended view")
+
+extracted_type_names <- str_extract(pfocr.curating.df$number, "^[A-Za-z]+")
+match_index <- match(extracted_type_names, names(type.list))
+pfocr.curating.df$figtype <- unlist(type.list[match_index])
+
 ##############################################################################
 ## Combine back with the original columns from new rds (new PFOCR content)
 ##############################################################################
@@ -200,6 +289,97 @@ saveRDS(pfocr.figures.final.merged.df, "../pfocr_figures_draft.rds")
 #############################################################################
 ## FUNCTIONS ##
 ###############
+normalizeFigNumber <- function(number, figlink, filename){
+  #trash cases with decimals; they're unreliable
+  number <- ifelse(grepl("\\d+\\.\\d+", number),"",number)
+  #process other figure numbers extracted from PMC  
+  fig_num <- ifelse(sub("\\D*(\\d+[a-zA-Z]?).*", "\\1", number) == number, 
+                    NA, #if not digit; use other columns below
+                    ifelse(sub(".*Scheme (\\d+[a-zA-Z]?)\\D*", "\\1", number) == number, 
+                           ifelse(sub("^Figure (\\d+[a-zA-Z]?)\\D*supplement (\\d+[a-zA-Z]?)", "\\1", number) == number,  #if not scheme; check elife
+                                  ifelse(sub(".*[Ss]upp\\D*(\\d+[a-zA-Z]?)\\D*", "\\1", number) == number,  #if not elife; check supplement
+                                         ifelse(sub(".*S(\\d+[a-zA-Z]?)\\D*", "\\1", number) == number,  #if not supplement; check supplement type S
+                                                ifelse(sub(".*A(\\d+[a-zA-Z]?)\\D*", "\\1", number) == number,  #if not supplements; check appendix
+                                                       ifelse(sub(".*EV(\\d+[a-zA-Z]?)\\D*", "\\1", number) == number,  #if not appendix; check expanded view
+                                                              ifelse(sub("Box|Chart (\\d+[a-zA-Z]?)", "\\1", number) == number,  #if not appendix; check box
+                                                                     sub("\\D*(\\d+[a-zA-Z]?).*", "F\\1", number), #if not Box|Chart, then F+digits
+                                                                     NA), #then Box|Chart; use other columns below
+                                                              sub(".*EV(\\d+[a-zA-Z]?)\\D*", "EV\\1", number)), # then expanded view figure
+                                                       sub(".*A(\\d+[a-zA-Z]?)\\D*", "AF\\1", number)), # then appendix figure
+                                                sub(".*S(\\d+[a-zA-Z]?)\\D*", "SF\\1", number)), # then supplement type S
+                                         sub(".*[Ss]upp\\D*(\\d+[a-zA-Z]?)\\D*", "SF\\1", number)), # then supplement
+                                  sub("^Figure (\\d+[a-zA-Z]?)\\D*supplement (\\d+[a-zA-Z]?)", "SF\\1_\\2", number)), # then elife
+                           sub(".*Scheme (\\d+[a-zA-Z]?)\\D*", "S\\1", number))) # then scheme
+# if NA try filename
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub("gr(\\d+[a-zA-Z]?).*\\.jpg", "\\1", filename) == filename, 
+                           NA, sub("gr(\\d+[a-zA-Z]?).*\\.jpg", "F\\1", filename)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub(".*_?[Ff](ig)?(\\d+[a-zA-Z]?)[-_].*", "\\2", filename) == filename, 
+                           NA, sub(".*_?[Ff](ig)?(\\d+[a-zA-Z]?)[-_].*", "F\\2", filename)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub(".*0+(\\d+[a-zA-Z]?)\\.jpg", "\\1", filename) == filename, 
+                           NA, sub(".*0+(\\d+[a-zA-Z]?)\\.jpg", "F\\1", filename)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), #Graphical Abstract
+                    ifelse(sub(".*abs[Ff](ig)?(\\d+[a-zA-Z]?)\\.jpg", "\\2", filename) == filename, 
+                           NA, sub(".*abs[Ff](ig)?(\\d+[a-zA-Z]?)\\.jpg", "GA\\2", filename)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub(".*[Ff](ig)?(\\d+[a-zA-Z]?)\\.jpg", "\\2", filename) == filename, 
+                           NA, sub(".*[Ff](ig)?(\\d+[a-zA-Z]?)\\.jpg", "F\\2", filename)), 
+                    fig_num)
+  # if still NA try figlink
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub(".*/FU*(\\d+[a-zA-Z]?)/", "\\1", figlink) == figlink, 
+                           NA, sub(".*/FU*(\\d+[a-zA-Z]?)/", "F\\1", figlink)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), # Scheme
+                    ifelse(sub(".*/[Ss]ch(\\d+[a-zA-Z]?)/", "\\1", figlink) == figlink, 
+                           NA, sub(".*/[Ss]ch(\\d+[a-zA-Z]?)/", "S\\1", figlink)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), # Scheme
+                    ifelse(sub(".*/F(SI+)/", "\\1", figlink) == figlink, 
+                           NA, sub(".*/F(SI+)/", "\\1", figlink)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub(".*[Ff](\\d+)/", "\\1", figlink) == figlink, 
+                           NA, sub(".*[Ff](\\d+)/", "F\\1", figlink)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub(".*/f(ig)?(\\d+)-.+/", "\\2", figlink) == figlink, 
+                           NA, sub(".*/f(ig)?(\\d+)-.+/", "F\\2", figlink)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), #Graphical Abstract
+                    ifelse(sub(".*/[FG](ig)?([aA])/", "\\2", figlink) == figlink, 
+                           NA, sub(".*/[FG](ig)?([aA])/", "GA", figlink)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), #Graphical Abstract
+                    ifelse(sub(".*/undfig(\\d+)/", "\\1", figlink) == figlink, 
+                           NA, sub(".*/undfig(\\d+)/", "GA\\1", figlink)), 
+                    fig_num)
+  fig_num <- ifelse(is.na(fig_num), 
+                    ifelse(sub(".*[Ff]ig(ure)?(\\d+[a-zA-Z]?)/", "\\2", figlink) == figlink, 
+                           NA, sub(".*[Ff]ig(ure)?(\\d+[a-zA-Z]?)/", "F\\2", figlink)), 
+                    fig_num)
+  # if still NA give and use "0"
+  fig_num <- ifelse(is.na(fig_num), "F0", fig_num)
+  
+  # clean up preceding zeros
+  fig_num <- ifelse(sub("(\\D+)0+(?=[1-9])", "\\2", fig_num, perl=TRUE) == fig_num,
+                    fig_num,
+                    sub("(\\D+)0+(?=[1-9])", "\\1\\2", fig_num, perl=TRUE))
+  
+  # fix roman numerials
+  fig_num <- ifelse(grepl("II", fig_num),
+                    gsub("II", "2", fig_num),
+                    gsub("I", "1", fig_num))
+    
+  return(fig_num)
+}
+
 removePMCPrefix <- function(input.txt){
   return(sub("PMC\\d+__", "", input.txt))
 }
