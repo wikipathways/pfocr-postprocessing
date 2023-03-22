@@ -7,8 +7,8 @@ This README describes how to process new batches of results from the PFOCR pipel
   - Unifies the column names. It also formats the PMC filename and image link to work with NDEx.
   - Removes some unnecessary columns
   - Removes preambles from fig titles
+  - Determins unique figure "number" and figtype for all figures
   - Adds figid_alias for GMTs and other human-readable use cases
-  - Adds citelink for pfocr database, using figid_alias
   - Replaces empty/NA , <25, >200 fig titles
   - Applies ungreek function
   - reconciles organism/species names
@@ -28,7 +28,7 @@ This README describes how to process new batches of results from the PFOCR pipel
 
 4. Generate GMTs
   - Run pfocr_gmt.R
-  - Produce default gmt and "hgnc3" subset gmt files. Note: default takes ~7 minutes to complete.
+  - Produce "filtered" gmt with hgnc3 subset for human and mouse.
 
 5. Generate annots from Jensen enrichment
   - Run pforc_enrich.R

@@ -25,7 +25,7 @@ gmt.df <- genes %>%
 rWikiPathways::writeGMT(gmt.df, "../pfocr_genes_hgnc3_draft.gmt")
 
 # Homology map to mouse
-hs.ent <- unique(dplyr::pull(gmt.df2, entrez))
+hs.ent <- unique(dplyr::pull(gmt.df, entrez))
 homo.df <- homologene(hs.ent, inTax = 9606, outTax = 10090)
 names(homo.df) <- c("symbol","symbol.mm","entrez","entrez.mm")
 homo.df$entrez <- as.character(homo.df$entrez)
